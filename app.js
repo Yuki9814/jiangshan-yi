@@ -6,7 +6,7 @@
   const phaseNames={development:'休养生息',war:'群雄交锋',attrition:'长战消耗',decisive:'决胜之势',victory:'山河归一'};
   const terrainNames={plain:'平原',mountain:'山地',river:'河川'};
   const kinds={phase:'诏令',develop:'发展',battle:'交锋',capture:'易主',eliminate:'退场',victory:'统一',system:'纪事',allegiance:'归顺',tactic:'计谋',coalition:'结盟',coalition_end:'解盟',expedition:'远征',expedition_start:'出征',expedition_result:'远征战果'};
-  const engine=window.WarEngine,maps=[...(window.WORLD_MAP?[window.WORLD_MAP]:[]),...(window.MAP_CATALOG||[{...window.MAP_DATA,id:'central',name:'中原逐鹿'}])];
+  const engine=window.GameSession.wrap(window.WarEngine),maps=[...(window.WORLD_MAP?[window.WORLD_MAP]:[]),...(window.MAP_CATALOG||[{...window.MAP_DATA,id:'central',name:'中原逐鹿'}])];
   let map=maps[0];
   if(!map||!engine){$('inspector').hidden=false;$('inspector').innerHTML='<h2>资源未载入</h2><p>请保留完整文件夹，并重新打开 index.html。</p>';$('play-button').disabled=true;return;}
   const factions=engine.FACTIONS,byId=Object.fromEntries(factions.map(f=>[f.id,f]));
@@ -14,7 +14,8 @@
   const eventLabel=e=>e.pursuit?'追击':e.type==='coalition'?({form:'结盟',coordinate:'协同',expire:'届满',dissolve:'解盟'}[e.action]||'盟约'):e.type==='expedition'?({started:'出征',victory:'凯旋',defeat:'受挫',cancelled:'中止'}[e.status]||'远征'):kinds[e.type]||'纪事';
   const warKinds=['battle','capture','eliminate','victory','allegiance','tactic'];
   const portrait=id=>escape((byId[id]?.portrait||`assets/portraits/${id}.webp`)+'?v=20260912-chronicle');
-  let campaign;
+  let campaign,experience;
+  let eventLimit=80,eventRenderKey='';
   let state,playing=false,speed=1,timer=null,selected={type:'faction',id:'hanxin',highlight:false},activeTab='ranking',victoryDismissed=false,toastTimer;
   const urlSeed=new URLSearchParams(location.search).get('seed');
   $('seed-input').value=(urlSeed||'江山-2026').slice(0,48);
@@ -22,16 +23,16 @@
   const date=(month)=>month===0?'开局 · 一月':`第 ${Math.floor((month-1)/12)+1} 年 · ${((month-1)%12)+1} 月`;
   const briefDate=(month)=>month===0?'开局':`${Math.floor((month-1)/12)+1} 年 ${((month-1)%12)+1} 月`;
   const toast=text=>{$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,2500)};
-  function stop(){playing=false;clearInterval(timer);timer=null;updateControls()}
-  function start(){if(state.finished)return;playing=true;clearInterval(timer);timer=setInterval(()=>advance(),900/speed);updateControls()}
+  function stop(){playing=false;clearInterval(timer);timer=null;updateControls();void experience?.save(false)}
+  function start(){if(!state||state.finished)return;playing=true;clearInterval(timer);timer=setInterval(()=>advance(),900/speed);updateControls()}
   function toggle(){playing?stop():start()}
   function advance(){
     if(state.finished){stop();return;}
     try{const priorDomesticWinner=state.domesticWinner;engine.step(state,map);if(state.finished&&state.winner)selected={type:'faction',id:state.winner,highlight:false};render(true);if(state.finished)stop();else if(!priorDomesticWinner&&state.domesticWinner){stop();toast('海内已定，诸侯息兵。可另启「普天之下，莫非王土」。');}}
-    catch(error){stop();toast('推演已暂停：状态检查未通过，请重开。');console.error(error);}
+    catch(error){stop();toast('推演已暂停，并恢复到上一个有效月份。可保存后重试。');console.error(error);}
   }
   function newGame(seed,config=campaign?.config){
-    stop();const normalized=String(seed||'江山-2026').trim().slice(0,48)||'江山-2026';
+    stop();eventLimit=80;eventRenderKey='';const normalized=String(seed||'江山-2026').trim().slice(0,48)||'江山-2026';
     const nextMap=maps.find(m=>m.id===config?.mapId)||map;
     if(nextMap!==map){map=nextMap;atlas.setMap(map);}
     state=engine.createGame(map,normalized,config||{});$('seed-input').value=normalized;victoryDismissed=false;selected={type:'faction',id:state.participantIds?.[0]||Object.keys(state.factions)[0],highlight:false};
@@ -45,7 +46,7 @@
   function selectedLeader(){const id=selected.type==='faction'?selected.id:state.regions[selected.id]?.owner;return activeLord(id)||id;}
   function updateWarControl(){
     const phase=state.campaignPhase||'domestic',truce=phase==='truce',button=$('truce-toggle');
-    button.disabled=state.finished||(truce&&!!state.domesticWinner);button.textContent=phase==='world'?'止戈休整':truce?'再启烽烟':'天下息兵';
+    button.disabled=state.finished||(truce&&!!state.domesticWinner&&state.resumePhase!=='world');button.textContent=phase==='world'?'止戈休整':truce?(state.resumePhase==='world'?'续征域外':'再启烽烟'):'天下息兵';
     $('chapter-status').textContent=phase==='world'?'副本 · 收服域外':truce?state.domesticWinner?'主线 · 山河已定':'主线 · 天下息兵':'主线 · 九州逐鹿';
     $('world-chapter').hidden=!map.worldMode||phase==='world';$('world-chapter').disabled=!truce||state.finished||state.worldCompleted;$('world-chapter').title=state.worldCompleted?'域外已定':truce?'开启域外收服副本':'天下息兵后可开启';
     $('war-order').classList.toggle('active',phase==='world');
@@ -102,13 +103,20 @@
     $('ranking-list').innerHTML=visible.map(r=>{const lord=activeLord(r.id);return `<button class="faction-row ${selected.type==='faction'&&selected.id===r.id?'selected':''} ${lord?'serving':r.alive?'':'dead'}" style="--faction:${r.color}" data-faction="${r.id}" aria-label="${r.name}，${lord?`归顺${byId[lord].name}`:`${r.territories}块领土，兵力${format(r.troops)}`}" aria-pressed="${selected.type==='faction'&&selected.id===r.id}"><img class="roster-portrait" src="${portrait(r.id)}" alt=""><div class="row-info"><div class="row-main"><span class="name">${r.name}</span><span class="land-count">${lord?'从'+byId[lord].name:r.alive?r.territories+' 地':'退场'}</span></div><div class="row-bar"><i style="background:${lord?byId[lord].color:r.color};width:${100*r.territories/largest}%"></i></div><small class="row-posture">${!r.alive?'已退场':state.factions[r.id].aggressive?'参战中':byId[r.id].region||'和平发展'}</small></div></button>`;}).join('')||'<p class="event-empty">当前没有符合条件的势力。</p>';
   }
   function renderEvents(){
-    const category=$('event-category').value;
-    const matched=state.events.filter(e=>category==='all'||(category==='war'?warKinds.includes(e.type):category==='coalition'||category==='expedition'?String(e.type).startsWith(category):e.type===category));
+    if(!state)return;
+    const category=$('event-category').value,query=$('event-search').value.trim().toLowerCase();
+    const matched=state.events.filter(e=>(category==='all'||(category==='war'?warKinds.includes(e.type):category==='coalition'||category==='expedition'?String(e.type).startsWith(category):e.type===category))&&(!query||(String(e.text)+' '+String(e.details||'')).toLowerCase().includes(query)));
     $('event-count').textContent=matched.length;
-    const events=matched.slice(-80).reverse();
-    $('event-list').innerHTML=events.length?events.map(e=>`<button class="event-item" data-event="${escape(e.id)}" style="--faction:${byId[e.actor]?.color||'#6d7f68'}"><small><span>${briefDate(e.month)}</span><span class="event-kind">${eventLabel(e)}</span></small><p>${escape(e.text)}</p>${e.details?`<div class="event-detail">${e.type==='tactic'&&byId[e.defender]?`对手：${escape(byId[e.defender].name)}；`:''}${escape(String(e.details).replaceAll("=","："))}</div>`:''}</button>`).join(''):'<p class="event-empty">当前还没有这类战报。继续推演，观察局势变化。</p>';
-    const latest=state.lastEvents.findLast?.(e=>['phase','allegiance','tactic','victory','eliminate'].includes(e.type))||state.lastEvents.findLast?.(e=>warKinds.includes(e.type))||state.events[state.events.length-1];
-    $('latest-event').textContent=latest?`${briefDate(latest.month)}　${latest.text}`:'诸将已至，点击「开始推演」静观风云。';
+    const key=[map.id,state.seed,state.month,state.eventCounter,category,query,eventLimit].join('|');
+    if(activeTab==='events'&&key!==eventRenderKey){
+      eventRenderKey=key;
+      const events=matched.slice(-eventLimit).reverse();
+      $('event-list').innerHTML=events.length?events.map(e=>'<button class="event-item" data-event="'+escape(e.id)+'"><small><span>'+briefDate(e.month)+'</span><span class="event-kind">'+eventLabel(e)+'</span></small><p>'+escape(e.text)+'</p>'+(e.details?'<div class="event-detail">'+escape(String(e.details).replaceAll('=', '：'))+'</div>':'')+'</button>').join(''):'<p class="event-empty">没有符合条件的战报。</p>';
+      $('event-more').hidden=matched.length<=eventLimit;
+      $('event-more').textContent='加载更早战报（已显示 '+Math.min(eventLimit,matched.length)+' / '+matched.length+'）';
+    }
+    const latest=state.lastEvents.findLast?.(e=>['phase','allegiance','tactic','victory','eliminate','order'].includes(e.type))||state.lastEvents.findLast?.(e=>warKinds.includes(e.type))||state.events[state.events.length-1];
+    $('latest-event').textContent=latest?briefDate(latest.month)+'　'+latest.text:'诸将已至，点击「开始推演」静观风云。';
   }
   function renderVictory(){
     if((!state.finished&&!state.worldCompleted)||victoryDismissed){$('victory-panel').hidden=true;return;}
@@ -128,25 +136,25 @@
     $('roster-total').textContent=scopeRows.length;$('roster-alive').textContent=scopeAlive;$('alive-status').innerHTML=`<b>${scopeAlive}</b> 家${local?'诸侯':'势力'}`;$('territory-status').innerHTML=`<b>${scopeRegions.length}</b> 地盘`;$('neutral-status').textContent=local?'域外诸邦 · 静守山海':`${scopeNeutral} 块中立`;
     $('territory-strip').innerHTML=[...rows.map(r=>{const count=scopeRegions.filter(t=>t.owner===r.id).length;return count?`<span style="width:${100*count/scopeRegions.length}%;background:${r.color}" title="${r.name}：${count} 块"></span>`:'';}),scopeNeutral?`<span style="width:${100*scopeNeutral/scopeRegions.length}%;background:#cccbbb" title="中立：${scopeNeutral} 块"></span>`:''].join('');
     atlas.setSelection(selected.type==='region'?selected.id:null,selected.type==='faction'&&selected.highlight!==false?(activeLord(selected.id)||selected.id):null);atlas.render(state,animate);
-    renderInspector(rows);renderRanking(rows);renderEvents();renderVictory();updateControls();updateWarControl();
+    renderInspector(rows);renderRanking(rows);renderEvents();renderVictory();updateControls();updateWarControl();experience?.changed();
     const treaties=(state.coalitions||[]).filter(c=>c.active!==false&&!c.endedMonth),journeys=(state.expeditions||[]).filter(e=>e.status==='started');
     $('council-status').textContent=`${phase==='world'?'海内会盟':phase==='truce'?'天下息兵':treaties.length?treaties.length+' 份合纵盟约':'暂无盟约'} · ${journeys.length?journeys.length+' 支远征军在途':'查看军议与远征'}`;$('council-status').classList.toggle('has-treaty',treaties.length>0);
     if(restoreFocus){const r=restoreFocus;const candidates=document.querySelectorAll(r.kind==='event'?'#event-list [data-event]':r.kind==='person'?'#inspector [data-person]':r.kind==='map'?'#faction-portraits [data-faction]':'#ranking-list [data-faction]');const target=[...candidates].find(el=>(r.kind==='event'?el.dataset.event:r.kind==='person'?el.dataset.person:el.dataset.faction)===r.id);target?.focus({preventScroll:true});}
   }
-  function switchTab(tabName){activeTab=tabName;for(const key of ['ranking','events']){$(`${key}-tab`).setAttribute('aria-selected',key===tabName);$(`${key}-tab`).tabIndex=key==='events'||key===tabName?0:-1;$(`${key}-panel`).hidden=key!==tabName;}}
+  function switchTab(tabName){activeTab=tabName;for(const key of ['ranking','events']){$(`${key}-tab`).setAttribute('aria-selected',key===tabName);$(`${key}-tab`).tabIndex=key===tabName?0:-1;$(`${key}-panel`).hidden=key!==tabName;}if(tabName==='events')renderEvents();}
   $('play-button').onclick=toggle;$('step-button').onclick=()=>{stop();advance()};
   document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=Number(b.dataset.speed);if(playing)start();else updateControls();});
-  $('seed-form').onsubmit=e=>{e.preventDefault();newGame($('seed-input').value);toast('已按种子重开，相同种子可复现战局。')};
+  $('seed-form').onsubmit=e=>{e.preventDefault();if(state.month>0&&!window.confirm('重开将替换当前进度。重要战局建议先导出存档，继续？'))return;newGame($('seed-input').value);toast('已按种子重开，相同种子可复现战局。')};
   $('new-game-button').onclick=()=>campaign.openSetup();$('setup-button').onclick=()=>campaign.openSetup();$('council-button').onclick=() =>campaign.openCouncil();$('council-status').onclick=()=>campaign.openCouncil();
   $('ranking-list').onclick=e=>{const row=e.target.closest('[data-faction]');if(row)selectFaction(row.dataset.faction)};
   $('roster-filter').onchange=()=>renderRanking(engine.ranking(state,map));
-  $('truce-toggle').onclick=()=>{const wasPlaying=playing;stop();const phase=state.campaignPhase==='truce'?'domestic':'truce',result=engine.setCampaignPhase(state,phase);if(!result.ok){toast(result.reason);return;}if(map.worldMode)$('roster-filter').value='china';render(false);if(phase==='domestic'&&map.worldMode)atlas.focusArea({x:1240,y:145,w:360,h:245});if(phase==='domestic'||wasPlaying)start();toast(phase==='domestic'?'再启烽烟，诸侯重回逐鹿之局。':'天下息兵，诸侯各守其土。可休养生息，或开启域外副本。');};
+  $('truce-toggle').onclick=()=>{const wasPlaying=playing;stop();const phase=state.campaignPhase==='truce'?(state.resumePhase||'domestic'):'truce',result=engine.setCampaignPhase(state,phase);if(!result.ok){toast(result.reason);return;}if(map.worldMode)$('roster-filter').value=phase==='world'?'all':'china';render(false);if(phase==='domestic'&&map.worldMode)atlas.focusArea({x:1240,y:145,w:360,h:245});if(phase!=='truce'||wasPlaying)start();toast(phase==='world'?'继续域外征程，国内维持息兵。':phase==='domestic'?'再启烽烟，诸侯重回逐鹿之局。':'天下息兵，诸侯各守其土。可休养生息，或开启域外副本。');};
   $('world-chapter').onclick=()=>{const result=engine.setCampaignPhase(state,'world');if(!result.ok){toast(result.reason);return;}$('roster-filter').value='all';atlas.reset();render(false);start();toast('普天之下，莫非王土：国内维持议和，诸侯开始收服域外。');};
   $('inspector').addEventListener('click',e=>{const chart=e.target.closest('[data-open-chart]'),attribute=e.target.closest('[data-attribute-detail]');if(chart||attribute){campaign.openCharacter(selected.id,attribute?.dataset.attributeDetail);return;}const person=e.target.closest('[data-person]');if(person){if(!state.factions[person.dataset.person]){campaign.openCharacter(person.dataset.person);return;}selectFaction(person.dataset.person);$('inspector').hidden=false;syncDetails();const heading=$('inspector').querySelector('h2');if(heading){heading.tabIndex=-1;heading.focus({preventScroll:true});}}});
   $('event-list').onclick=e=>{const row=e.target.closest('[data-event]');if(row){const event=state.events.find(x=>String(x.id)===row.dataset.event);if(String(event?.type).startsWith('coalition')||String(event?.type).startsWith('expedition')){campaign.openCouncil();}else if(event?.type==='allegiance'){selectFaction(event.subject||event.actor);$('inspector').hidden=false;syncDetails();}else if(event?.to!=null)selectRegion(event.to);else if(event?.actor)selectFaction(event.actor);}};
   $('ranking-tab').onclick=()=>switchTab('ranking');$('events-tab').onclick=()=>switchTab('events');
   document.querySelector('.rail-tabs').onkeydown=e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();switchTab(activeTab==='ranking'?'events':'ranking');$(`${activeTab}-tab`).focus()}};
-  $('detail-toggle').onclick=()=>{$('inspector').hidden=!$('inspector').hidden;syncDetails()};$('all-events').onclick=()=>switchTab('events');$('event-category').onchange=renderEvents;$('latest-event').onclick=()=>switchTab('events');
+  $('detail-toggle').onclick=()=>{$('inspector').hidden=!$('inspector').hidden;syncDetails()};$('all-events').onclick=()=>switchTab('events');$('event-category').onchange=()=>{eventLimit=80;renderEvents()};$('event-search').oninput=()=>{eventLimit=80;renderEvents()};$('event-more').onclick=()=>{eventLimit+=80;renderEvents()};$('latest-event').onclick=()=>switchTab('events');
   $('zoom-in').onclick=()=>atlas.zoomBy(1.3);$('zoom-out').onclick=()=>atlas.zoomBy(1/1.3);$('zoom-reset').onclick=()=>atlas.reset();
   $('focus-china').onclick=()=>{if(map.worldMode)atlas.focusArea({x:1240,y:145,w:360,h:245});};
   $('help-button').onclick=()=>{stop();$('help-dialog').showModal()};$('help-close').onclick=()=>$('help-dialog').close();
@@ -162,5 +170,16 @@
   }
   $('rules-summary').innerHTML='<p>主线中，每个月收粮、养兵、建设与征募，诸侯沿中国境内相邻地盘争夺。域外势力各守其土。天下息兵时，各方领土保留，继续休养；再启烽烟后恢复逐鹿。议和由你决定，不受剩余势力数量限制。</p><p>普天之下，莫非王土是独立的域外征程。国内诸侯维持会盟，沿陆路与海路收服境外地盘，当地势力会应战。副本以诸侯共同完成域外收服为目标，不要求国内先归于一家。</p><p>武力影响正面打击，统帅影响调度，智力帮助识破计谋，谋略决定用计能力，魅力影响招揽与士气，政务影响后勤，守御配合城防和地形稳固防线。个人七维属性固定，均为游戏设定。</p><p>国内争斗中，旧主关系在接壤、实力与魅力合适时可能促成归顺；强敌崛起时，弱势双方可结成合纵。计谋消耗粮草并有冷却，成功后仍须赢得战斗。「军议 · 远征」可查看盟约与行军任务，安排完毕后继续推演。</p>';
   campaign=new CampaignUI({engine,maps,getState:()=>state,getMap:()=>map,getSelected:()=>selected,onStart:(config,seed)=>{newGame(seed,config);switchTab('ranking');toast('诸侯已就位，开始推演即可逐鹿。随时可选择天下息兵。');},onPause:stop,onRefresh:()=>render(false),toast});
-  newGame($('seed-input').value);switchTab('ranking');
+  function restoreGame(loaded){
+    stop();map=loaded.map;atlas.setMap(map);engine.bindMap(map);state=loaded.state;campaign.config=loaded.config;
+    $('seed-input').value=state.seed;victoryDismissed=false;eventLimit=80;eventRenderKey='';selected={type:'faction',id:state.selectedFactionIds[0],highlight:false};
+    updateMapDescription();atlas.reset();if(map.worldMode&&state.campaignPhase!=='world')atlas.focusArea({x:1240,y:145,w:360,h:245});atlas.clearEffects();$('inspector').hidden=true;syncDetails();render(false);
+  }
+  experience=new ExperienceUI({engine,maps,getState:()=>state,getMap:()=>map,getSelected:()=>selected,onPause:stop,onRefresh:()=>render(false),onRestore:restoreGame,toast});
+  async function boot(){
+    document.body.inert=true;
+    try{if(!await experience.restoreLatest())newGame($('seed-input').value);experience.activate();switchTab('ranking');}
+    finally{document.body.inert=false;}
+  }
+  window.jiangshanReady=boot();
 })();

@@ -21,12 +21,18 @@ class LocalFiles(SimpleHTTPRequestHandler):
 def main():
     parser = argparse.ArgumentParser(description='江山弈本地启动器')
     parser.add_argument('--no-open', action='store_true', help='只启动本机服务')
-    parser.add_argument('--port', type=int, default=0, help='默认自动选择空闲端口')
+    parser.add_argument('--port', type=int, default=8765, help='默认 8765，保持存档地址稳定；0 为临时随机端口')
     args = parser.parse_args()
     root = Path(__file__).resolve().parent
-    server = ThreadingHTTPServer(('127.0.0.1', args.port), partial(LocalFiles, directory=str(root)))
+    try:
+        server = ThreadingHTTPServer(('127.0.0.1', args.port), partial(LocalFiles, directory=str(root)))
+    except OSError as error:
+        print(f'无法启动本机端口 {args.port}：{error}。可关闭旧启动器，或使用 --port 指定端口；更换端口会使用另一份浏览器存档。', file=sys.stderr)
+        raise SystemExit(1) from error
     address = f'http://127.0.0.1:{server.server_address[1]}/'
     print(f'江山弈已就绪：{address}', flush=True)
+    if args.port == 0:
+        print('当前为临时随机地址：关闭前请导出存档，重新启动后地址可能不同。', flush=True)
     print('保留此窗口即可持续游玩。按 Control-C 关闭本机服务。', flush=True)
     if not args.no_open:
         if sys.platform == 'darwin':

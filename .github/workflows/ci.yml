@@ -28,6 +28,7 @@ jobs:
           for file in *.js *.cjs; do node --check "$file"; done
       - name: 玩法与视口检查
         run: |
+          node review-regressions.test.cjs
           node engine.test.cjs
           node character-mechanics.test.cjs
           node campaign-mechanics.test.cjs
@@ -50,3 +51,21 @@ jobs:
       - run: python -m pip install -r requirements.txt
       - name: 检查地块、共享边界与海路
         run: python source-tools/validate_world_map.py --evidence work/world-map-validation.json
+  browser:
+    name: Browser save and council flows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: npm install --no-save --package-lock=false --ignore-scripts playwright@1.55.0
+      - run: npx playwright install --with-deps chromium
+      - run: node source-tools/review-browser.test.cjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: browser-evidence
+          path: work/review-*.png
+          if-no-files-found: ignore
