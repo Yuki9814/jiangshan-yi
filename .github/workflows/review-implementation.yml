@@ -2,7 +2,7 @@ name: Review implementation validation
 on:
   push:
     branches: [feat/review-reliability-and-council]
-    paths: [source-tools/apply-review.cjs, source-tools/finalize-review.cjs]
+    paths: ['source-tools/**', '*review*.cjs']
 permissions:
   contents: write
 concurrency:
@@ -20,20 +20,25 @@ jobs:
         with:
           node-version: '22'
       - name: Apply checked source edits
+        id: apply
         run: |
+          cp engine.js /tmp/review-base-engine.js
           node source-tools/apply-review.cjs
           node source-tools/finalize-review.cjs
+      - name: Diagnose baseline trajectory
+        run: node source-tools/diagnose-review.cjs
       - name: Check source and regression suite
+        id: rules
         run: |
           for file in *.js *.cjs; do node --check "$file"; done
-          node review-regressions.test.cjs
-          node engine.test.cjs
-          node character-mechanics.test.cjs
-          node campaign-mechanics.test.cjs
-          node world-mechanics.test.cjs
-          node world-completion.test.cjs
-          node viewport.test.cjs
+          status=0
+          for test in review-regressions.test.cjs engine.test.cjs character-mechanics.test.cjs campaign-mechanics.test.cjs world-mechanics.test.cjs world-completion.test.cjs viewport.test.cjs; do
+            echo "TEST $test"
+            node "$test" || status=1
+          done
+          exit "$status"
       - name: Validate browser interactions
+        if: success() || (failure() && steps.apply.outcome == 'success')
         run: |
           npm install --no-save --package-lock=false --ignore-scripts playwright@1.55.0
           npx playwright install --with-deps chromium
@@ -45,6 +50,7 @@ jobs:
           path: work/review-*.png
           if-no-files-found: ignore
       - name: Push only the tested implementation branch
+        if: success() && steps.rules.outcome == 'success'
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
