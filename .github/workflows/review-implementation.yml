@@ -2,7 +2,7 @@ name: Review implementation validation
 on:
   push:
     branches: [feat/review-reliability-and-council]
-    paths: ['source-tools/**', '*review*.cjs']
+    paths: ['source-tools/**', '*review*.cjs', '.github/workflows/review-implementation.yml']
 permissions:
   contents: write
 concurrency:
@@ -22,11 +22,8 @@ jobs:
       - name: Apply checked source edits
         id: apply
         run: |
-          cp engine.js /tmp/review-base-engine.js
           node source-tools/apply-review.cjs
           node source-tools/finalize-review.cjs
-      - name: Diagnose baseline trajectory
-        run: node source-tools/diagnose-review.cjs
       - name: Check source and regression suite
         id: rules
         run: |
@@ -63,12 +60,12 @@ jobs:
             README.md
             source-tools/*review*.cjs
           if-no-files-found: error
-      - name: Push only the tested implementation branch
+      - name: Push only tested runtime sources
         if: success() && steps.rules.outcome == 'success'
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- engine.js app.js campaign-ui.js index.html styles.css map-view.js launcher.py game-session.js experience-ui.js review-regressions.test.cjs .github/workflows/ci.yml RULES.md README.md
+          git add -- engine.js app.js campaign-ui.js index.html styles.css map-view.js launcher.py game-session.js experience-ui.js review-regressions.test.cjs RULES.md README.md
           if ! git diff --cached --quiet; then
             git commit -m 'feat: implement reviewed simulation fixes, saves and council controls'
             git push origin HEAD:feat/review-reliability-and-council
