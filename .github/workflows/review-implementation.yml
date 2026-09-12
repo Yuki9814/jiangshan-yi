@@ -2,7 +2,7 @@ name: Review implementation validation
 on:
   push:
     branches: [feat/review-reliability-and-council]
-    paths: [source-tools/apply-review.cjs]
+    paths: [source-tools/apply-review.cjs, source-tools/finalize-review.cjs]
 permissions:
   contents: write
 concurrency:
@@ -20,7 +20,9 @@ jobs:
         with:
           node-version: '22'
       - name: Apply checked source edits
-        run: node source-tools/apply-review.cjs
+        run: |
+          node source-tools/apply-review.cjs
+          node source-tools/finalize-review.cjs
       - name: Check source and regression suite
         run: |
           for file in *.js *.cjs; do node --check "$file"; done
@@ -36,7 +38,7 @@ jobs:
           npm install --no-save --package-lock=false --ignore-scripts playwright@1.55.0
           npx playwright install --with-deps chromium
           node source-tools/review-browser.test.cjs
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: review-browser-evidence
@@ -46,7 +48,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add engine.js app.js campaign-ui.js index.html styles.css map-view.js launcher.py .github/workflows/ci.yml RULES.md README.md
+          git add -- engine.js app.js campaign-ui.js index.html styles.css map-view.js launcher.py game-session.js experience-ui.js review-regressions.test.cjs .github/workflows/ci.yml RULES.md README.md
           if ! git diff --cached --quiet; then
             git commit -m 'feat: implement reviewed simulation fixes, saves and council controls'
             git push origin HEAD:feat/review-reliability-and-council
