@@ -366,7 +366,7 @@
     bindPan(){
       let drag=null;const down=e=>{if(e.button!==0)return;this.didDrag=false;drag={x:e.clientX,y:e.clientY,v:{...this.view}};};
       const move=e=>{if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.hypot(dx,dy)>5){this.didDrag=true;this.svg.parentElement.classList.add('dragging');const rect=this.svg.getBoundingClientRect();const ratio=Math.min(rect.width/drag.v.w,rect.height/drag.v.h);this.view.x=drag.v.x-dx/ratio;this.view.y=drag.v.y-dy/ratio;this.applyView();}};
-      const end=()=>{drag=null;this.svg.parentElement.classList.remove('dragging');};const leave=end;const wheel=e=>{e.preventDefault();this.zoomBy(e.deltaY<0?1.12:1/1.12);};const dblclick=()=>this.reset();
+      const end=()=>{drag=null;this.svg.parentElement.classList.remove('dragging');};const leave=end;const wheel=e=>{e.preventDefault();this.zoomBy(e.deltaY<0?1.12:1/1.12,{x:e.clientX,y:e.clientY});};const dblclick=()=>this.reset();
       this.panHandlers={down,move,end,leave,wheel,dblclick};this.svg.addEventListener('pointerdown',down);this.svg.addEventListener('pointermove',move);window.addEventListener('pointerup',end);this.svg.addEventListener('pointerleave',leave);this.svg.addEventListener('wheel',wheel,{passive:false});this.svg.addEventListener('dblclick',dblclick);
     }
     visibleSize(view){
@@ -401,7 +401,13 @@
       this.svg.setAttribute('viewBox',`${this.view.x} ${this.view.y} ${this.view.w} ${this.view.h}`);
       this.updateWorldDetail();
     }
-    zoomBy(factor){const next=Math.max(this.minZoom||.65,Math.min(this.map.worldMode?18:3.5,this.zoom*factor));const actual=next/this.zoom;this.zoom=next;const w=this.view.w/actual,h=this.view.h/actual;this.view.x+=(this.view.w-w)/2;this.view.y+=(this.view.h-h)/2;this.view.w=w;this.view.h=h;this.applyView();}
+    zoomBy(factor,anchor=null){
+      if(!Number.isFinite(factor)||factor<=0)return;
+      const next=Math.max(this.minZoom||.65,Math.min(this.map.worldMode?18:3.5,this.zoom*factor)),actual=next/this.zoom;
+      const rect=this.svg.getBoundingClientRect(),pixel=Math.min(rect.width/this.view.w,rect.height/this.view.h)||1;
+      const x=anchor?(anchor.x-rect.left)/pixel:this.view.w/2,y=anchor?(anchor.y-rect.top)/pixel:this.view.h/2;
+      this.zoom=next;this.view.x+=x*(1-1/actual);this.view.y+=y*(1-1/actual);this.view.w/=actual;this.view.h/=actual;this.applyView();
+    }
     focusArea(area){const box=typeof area==='string'?this.map.focusAreas?.[area]:area;if(!box)return;const w=box.w||box.width,h=box.h||box.height;if(!(w>0&&h>0))return;const rect=this.svg.getBoundingClientRect(),ratio=rect.width/rect.height;let targetW=Math.max(w,h*ratio),targetH=Math.max(h,w/ratio);this.view={x:box.x-(targetW-w)/2,y:box.y-(targetH-h)/2,w:targetW,h:targetH};this.zoom=this.base.w/targetW;this.applyView();}
     updateWorldDetail(){
       if(!this.map?.worldMode||!this.flagGroup)return;

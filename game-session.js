@@ -65,7 +65,7 @@
     const requireMap = () => { if (!map) throw new Error('尚未载入战场。'); return map; };
     return { ...engine, raw: engine,
       bindMap(next) { map = next; },
-      createGame(next, seed, options) { map = next; const state = engine.createGame(map, seed, options); state.commandLog = []; return state; },
+      createGame(next, seed, options) { map = next; const state = engine.createGame(map, seed, { quickEndgame: false, ...options }); state.commandLog = []; return state; },
       step(state, next) { map = next; return transaction(state, () => engine.step(state, map), engine, map); },
       setCampaignPhase(state, phase) { return dispatch(engine, requireMap(), state, { type: 'phase', phase }); },
       startExpedition(state, actor, siteId) { return dispatch(engine, requireMap(), state, { type: 'expedition', actor, siteId }); },
@@ -81,6 +81,14 @@
       mapId: map.id, contentId: identity(engine, map), savedAt: new Date().toISOString(),
       checksum: checksum(json), state: snapshot };
   }
+  function validateNumericState(state) {
+    const requireNumber = (value, label) => { if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) throw new Error('存档数值无效：' + label); };
+    if (!state || !Array.isArray(state.regions) || !state.factions || !state.options) throw new Error('存档状态结构无效。');
+    for (const region of state.regions) for (const key of ['troops', 'development', 'fort']) requireNumber(region?.[key], 'region.' + key);
+    for (const faction of Object.values(state.factions)) for (const key of ['grain', 'troops', 'morale', 'fatigue', 'economy']) requireNumber(faction?.[key], 'faction.' + key);
+    for (const key of ['coalitions', 'expeditions', 'autoWar', 'council', 'quickEndgame']) if (typeof state.options[key] !== 'boolean') throw new Error('存档玩法开关无效。');
+    if (!Number.isInteger(state.rngState) || state.rngState < 0 || state.rngState > 0xffffffff) throw new Error('存档随机状态无效。');
+  }
   function loadSave(engine, maps, value) {
     if (!value || value.format !== 'jiangshan-save' || value.formatVersion !== FORMAT) throw new Error('无法识别存档格式。');
     if (value.rulesVersion !== engine.version) throw new Error('存档规则版本不同，请使用对应版本打开；当前战局未变更。');
@@ -89,6 +97,7 @@
     const text = JSON.stringify(value.state);
     if (new TextEncoder().encode(text).length > MAX_BYTES || checksum(text) !== value.checksum) throw new Error('存档不完整或内容已损坏。');
     const state = clone(value.state);
+    validateNumericState(state);
     if (typeof state.seed !== 'string' || state.seed.length > 48 || !Number.isInteger(state.month) || state.month > 10000) throw new Error('存档月份或种子无效。');
     if (!Array.isArray(state.commandLog) || state.commandLog.length > 100000) throw new Error('存档命令记录无效。');
     let month = -1;
@@ -147,7 +156,7 @@
           const tx = db.transaction('slots', 'readwrite');
           const slots = tx.objectStore('slots');
           const previous = slots.get('latest');
-          previous.onsuccess = () => { if (previous.result) slots.put(previous.result, 'backup'); slots.put(frozen, 'latest'); };
+          previous.onsuccess = () => { if (previous.result && previous.result.checksum !== frozen.checksum) slots.put(previous.result, 'backup'); slots.put(frozen, 'latest'); };
           tx.oncomplete = resolve;
           tx.onerror = () => reject(tx.error || new Error('写入失败。'));
           tx.onabort = () => reject(tx.error || new Error('写入被取消。'));

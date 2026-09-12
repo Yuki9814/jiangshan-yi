@@ -1,4 +1,5 @@
 'use strict';
+const ORDER_RULES = typeof module !== 'undefined' && module.exports ? require('./military-orders.js') : globalThis.MilitaryOrders;
 
 /*
  * Jiangshan / Cross-era Generals
@@ -1078,6 +1079,9 @@ function normalizeGameOptions(options, context = null) {
     worldFactionIds,
     coalitions: input.coalitions !== false,
     expeditions: input.expeditions !== false,
+    council: input.council === true,
+    quickEndgame: input.quickEndgame !== false,
+    playerFactionId: factionIds.includes(input.playerFactionId) ? input.playerFactionId : factionIds[0],
     autoWar,
   };
 }
@@ -1136,6 +1140,8 @@ function createGame(map, seed, options = {}) {
     worldFactionIds: worldFactionIds.slice(),
     worldMode,
     campaignPhase: 'domestic',
+    resumePhase: 'domestic',
+    orderBudgets: {},
     domesticWinner: null,
     worldCompleted: false,
     victoryType: null,
@@ -1252,6 +1258,7 @@ function monthlyEconomy(state, context, events) {
       return sum + (6.2 + mapRegion.fertility * 3.4 + region.development * 0.68) * (1 + stats.development / 700);
     }, 0) * faction.economy;
     const maintenance = faction.troops * (0.11 + faction.fatigue * 0.0004);
+    faction.resourceLedger = { month: state.month, income, maintenance };
     faction.grain = clamp(faction.grain + income - maintenance, 0, 1100);
 
     if (faction.grain < Math.max(28, faction.troops * 0.045)) {
@@ -1406,7 +1413,7 @@ function reinforceFront(state, context, factionId, source) {
     const reserveKeep = garrisonFor(state, reserve);
     const available = Math.max(0, Math.floor(reserve.troops - reserveKeep));
     const needed = lateActivation
-      ? Math.max(0, frontTarget - source.troops - moved)
+      ? Math.max(0, frontTarget - source.troops)
       : desired - moved;
     const transfer = Math.min(needed, desired - moved, available);
     if (transfer <= 0) continue;
@@ -1855,15 +1862,11 @@ function canStartExpedition(state, actor, siteId) {
     details.reason = '军粮不足，无法负担这次远征。';
     return details;
   }
-  if (!Array.isArray(state.expeditions)) state.expeditions = [];
-  if (!state.expeditionCooldowns || typeof state.expeditionCooldowns !== 'object') {
-    state.expeditionCooldowns = Object.create(null);
-  }
-  if (state.expeditions.some((expedition) => expedition.actor === actorId && expedition.status === 'started')) {
+  if ((state.expeditions || []).some((expedition) => expedition.actor === actorId && expedition.status === 'started')) {
     details.reason = '该势力已有远征军在外。';
     return details;
   }
-  const last = Number(state.expeditionCooldowns[expeditionCooldownKey(actorId, site.id)]);
+  const last = Number((state.expeditionCooldowns || {})[expeditionCooldownKey(actorId, site.id)]);
   if (Number.isFinite(last) && state.month < last + site.cooldownMonths) {
     details.reason = `该地点仍在冷却中，还需${last + site.cooldownMonths - state.month}个月。`;
     details.cooldownRemaining = last + site.cooldownMonths - state.month;
@@ -1967,6 +1970,9 @@ function setCampaignPhase(state, nextPhase) {
   }
   if (state.finished) return { ok: false, reason: '沙盘已经统一，不能再改变战局阶段。' };
   const current = campaignPhase(state);
+  if (phase === 'domestic' && state.worldMode && state.domesticWinner) {
+    return { ok: false, reason: '海内已经平定，不能恢复已结束的国内争夺。可开启或继续域外征程。' };
+  }
   if (phase === current) {
     return { ok: true, phase, reason: '战局阶段未改变。' };
   }
@@ -1979,6 +1985,7 @@ function setCampaignPhase(state, nextPhase) {
   if (state.worldMode === true && phase === 'domestic' && current === 'world') {
     return { ok: false, reason: '域外征服进行中，请先天下息兵。' };
   }
+  state.resumePhase = phase === 'truce' ? current : phase;
   state.campaignPhase = phase;
   applyCampaignPosture(state, phase);
   if (!Array.isArray(state.events)) state.events = [];
@@ -2273,9 +2280,22 @@ function tryTactic(state, context, source, target, factionId, random, events) {
   return { success: false, defenseMultiplier: 1 };
 }
 
+function accountBattle(before, source, target, committed, attackerLosses, defenderLosses, won, advantage) {
+  const removed = before.source + before.target - source.troops - target.troops - attackerLosses - defenderLosses;
+  return {
+    before, after: { source: source.troops, target: target.troops }, committed,
+    losses: { attacker: attackerLosses, defender: defenderLosses },
+    dispersed: Math.max(0, removed), levies: Math.max(0, -removed),
+    returned: won ? 0 : Math.max(0, source.troops - (before.source - committed)),
+    surrendered: won ? Math.max(0, before.target - defenderLosses) : 0,
+    advantage, outcome: won ? 'victory' : 'defeat'
+  };
+}
+
 function executeAttack(state, context, source, target, factionId, random, events, tacticResult = null) {
   const faction = state.factions[factionId];
   if (!combatRouteAllowed(state, context, factionId, source, target)) return false;
+  const before = { source: source.troops, target: target.troops };
   const targetFactionId = target.owner;
   const targetFaction = targetFactionId ? state.factions[targetFactionId] : null;
   const link = linkBetween(context, source.id, target.id);
@@ -2360,13 +2380,15 @@ function executeAttack(state, context, source, target, factionId, random, events
       targetFaction.fatigue = clamp(targetFaction.fatigue + 5.4, 0, 100);
       targetFaction.morale = clamp(targetFaction.morale - 0.045, 0.45, 1.2);
     }
+    const accounting = accountBattle(before, source, target, power.committed, attackerLosses, defenderLosses, true, advantage);
     appendEvent(state, events, 'battle', `${faction.name}攻入${context.regions[target.id].name}并击退守军。`, {
       from: source.id,
       to: target.id,
       actor: factionId,
       ...routeFields,
       success: true,
-      details: `进攻方伤亡=${attackerLosses}；守方伤亡=${defenderLosses}；力量比=${advantage.toFixed(2)}`,
+      result: accounting,
+    details: `进攻方伤亡=${attackerLosses}；守方伤亡=${defenderLosses}；力量比=${advantage.toFixed(2)}；未能归队=${accounting.dispersed}；接收守军=${accounting.surrendered}；临时征募=${accounting.levies}`,
     });
     appendEvent(state, events, 'capture', `${faction.name}占领${context.regions[target.id].name}。`, {
       from: source.id,
@@ -2385,13 +2407,15 @@ function executeAttack(state, context, source, target, factionId, random, events
   if (state.phase === 'decisive') target.fort = Math.max(0, target.fort - 1.15);
   if (targetFaction) targetFaction.fatigue = clamp(targetFaction.fatigue + 1.1, 0, 100);
   faction.morale = clamp(faction.morale - 0.018, 0.45, 1.2);
+  const accounting = accountBattle(before, source, target, power.committed, attackerLosses, defenderLosses, false, advantage);
   appendEvent(state, events, 'battle', `${faction.name}进攻${context.regions[target.id].name}受挫，战线暂稳。`, {
       from: source.id,
       to: target.id,
       actor: factionId,
       ...routeFields,
       success: false,
-    details: `进攻方伤亡=${attackerLosses}；守方伤亡=${defenderLosses}；力量比=${advantage.toFixed(2)}`,
+    result: accounting,
+    details: `进攻方伤亡=${attackerLosses}；守方伤亡=${defenderLosses}；力量比=${advantage.toFixed(2)}；未能归队=${accounting.dispersed}；接收守军=${accounting.surrendered}；临时征募=${accounting.levies}`,
   });
   return false;
 }
@@ -2399,22 +2423,21 @@ function executeAttack(state, context, source, target, factionId, random, events
 function runCampaign(state, context, random, events) {
   if (state.month < 13) return;
   const actionOrder = random.shuffle(participantIds(state));
-  // Once the decisive phase has lasted long enough, the campaign commits to
-  // the strongest surviving independent power's main front.  Other armies
-  // have already had the whole war to contest the map; concentrating the
-  // final pressure prevents three depleted borders from endlessly trading
-  // the same low-garrison region while every move remains an adjacent battle.
-  const endgameLeader = state.month >= 420
-    ? actionOrder
-      .filter((id) => state.factions[id] && state.factions[id].alive && !state.factions[id].lordId)
-      .filter((id) => state.factions[id].aggressive === true)
-      .sort((left, right) => {
-        const leftFaction = state.factions[left];
-        const rightFaction = state.factions[right];
-        return rightFaction.territories - leftFaction.territories
-          || factionThreatPower(state, right) - factionThreatPower(state, left)
-          || participantIndex(state, left) - participantIndex(state, right);
-      })[0] || null
+  // Fast completion is an explicit legacy mode, not competitive simulation.
+  // Select by legal geography/posture, independent of this month's troop gate:
+  // a depleted front may regroup, but an isolated leader cannot block others.
+  const hasFront = id => ownedRegions(state, id).some(source =>
+    context.adjacency[source.id].some(targetId => {
+      const target = state.regions[targetId];
+      return target.owner !== id && combatRouteAllowed(state, context, id, source, target)
+        && !coalitionPartner(state, id, target.owner);
+    }));
+  const endgameLeader = state.options.quickEndgame && state.month >= 420
+    ? actionOrder.filter(id => state.factions[id]?.alive && !state.factions[id].lordId && state.factions[id].aggressive === true)
+      .filter(hasFront)
+      .sort((left, right) => state.factions[right].territories - state.factions[left].territories
+        || factionThreatPower(state, right) - factionThreatPower(state, left)
+        || participantIndex(state, left) - participantIndex(state, right))[0] || null
     : null;
   for (const factionId of actionOrder) {
     if (endgameLeader && factionId !== endgameLeader) continue;
@@ -2708,6 +2731,39 @@ function checkVictory(state, context, events) {
   }
 }
 
+function canIssueOrder(state, map, actor, kind, regionId) {
+  return ORDER_RULES.plan(state, map, actor, kind, regionId);
+}
+function issueOrder(state, map, actor, kind, regionId) {
+  const result = ORDER_RULES.apply(state, map, actor, kind, regionId);
+  if (!result.ok) return result;
+  appendEvent(state, state.lastEvents, 'order', state.factions[actor].name + '在' + map.regions[regionId].name + '下令' + result.name + '。', {
+    actor, to: regionId, success: true, order: result,
+    details: '耗粮=' + result.grainCost + '；实际增益=' + result.gain + '；本季军令剩余=' + ORDER_RULES.budget(state, actor).remaining
+  });
+  updateFactionSnapshots(state);
+  return result;
+}
+function runCouncilAI(state, context) {
+  if (!state.options.council) return;
+  for (const actor of participantIds(state)) {
+    const faction = state.factions[actor];
+    if (actor === state.options.playerFactionId || !faction.alive || faction.lordId || faction.grain < 120) continue;
+    if (state.worldMode && campaignPhase(state) !== 'world' && stateIsForeignFaction(state, actor)) continue;
+    if (ORDER_RULES.budget(state, actor).remaining < 1) continue;
+    const owned = ownedRegions(state, actor).slice().sort((a, b) => a.development - b.development || a.id - b.id);
+    let done = false;
+    for (const region of owned) {
+      const front = context.adjacency[region.id].some(id => state.regions[id].owner !== actor);
+      const kinds = front && region.troops < 70 ? ['muster', 'fortify', 'farm'] : region.development < 18 ? ['farm', 'fortify'] : ['fortify'];
+      for (const kind of kinds) {
+        if (canIssueOrder(state, context, actor, kind, region.id).allowed) { issueOrder(state, context, actor, kind, region.id); done = true; break; }
+      }
+      if (done) break;
+    }
+  }
+}
+
 function step(state, map) {
   if (!state || typeof state !== 'object') throw new Error('WarEngine: step requires a state');
   if (state.finished) return state;
@@ -2806,6 +2862,7 @@ function step(state, map) {
   monthlyEconomy(state, context, events);
   advanceExpeditions(state, context, random, events);
   developAndRecruit(state, context, random, events);
+  runCouncilAI(state, context);
   updateCoalitions(state, context, random, events);
   runExpeditionAI(state, context, random, events);
   attemptAllegiances(state, context, random, events);
@@ -2997,6 +3054,10 @@ function assertInvariants(state, map) {
   if (!Array.isArray(state.expeditions)) throw new Error('WarEngine invariant: expeditions missing');
   if (!state.expeditionCooldowns || typeof state.expeditionCooldowns !== 'object') {
     throw new Error('WarEngine invariant: expedition cooldowns missing');
+  }
+  if (state.options && state.options.council === true && !selectedFactionIds(state).includes(state.options.playerFactionId)) throw new Error('WarEngine invariant: invalid player faction');
+  for (const [actor, budget] of Object.entries(state.orderBudgets || {})) {
+    if (!ids.includes(actor) || !budget || !Number.isInteger(budget.used) || budget.used < 0 || budget.used > 3 || !Number.isInteger(budget.quarter) || budget.quarter < 0 || budget.quarter > Math.floor(state.month / 3)) throw new Error('WarEngine invariant: invalid order budget');
   }
   if (!Array.isArray(state.expeditionSites)) throw new Error('WarEngine invariant: expedition sites missing');
   const siteIds = new Set();
@@ -3219,7 +3280,7 @@ function assertInvariants(state, map) {
 }
 
 const WarEngine = {
-  version: '1.1.0',
+  version: '1.2.0',
   ATTRIBUTES: ATTRIBUTES.map((attribute) => ({ ...attribute })),
   FACTIONS: FACTIONS.map((faction) => ({
     ...faction,
@@ -3227,6 +3288,8 @@ const WarEngine = {
   })),
   RELATIONSHIPS: RELATIONSHIPS.map((relationship) => ({ ...relationship })),
   createGame,
+  canIssueOrder,
+  issueOrder,
   step,
   ranking,
   effectiveStats,

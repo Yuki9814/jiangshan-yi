@@ -19,7 +19,7 @@ vm.runInContext(fs.readFileSync(require.resolve('./engine.js'), 'utf8') + '\nglo
 const internal = sandbox.reviewInternals;
 const vmEngine = sandbox.module.exports;
 function arranged() {
-  const state = vmEngine.createGame(map, 'arranged', { factionIds: roster, expeditions: false });
+  const state = vmEngine.createGame(map, 'arranged', { factionIds: roster, expeditions: false, quickEndgame: false });
   state.regions.forEach((r, i) => { r.owner = i < 3 ? 'hanxin' : i < 6 ? 'caocao' : 'liubei'; r.fort = 0; });
   internal.updateFactionSnapshots(state); return state;
 }
@@ -33,7 +33,7 @@ test('late reinforcement does not subtract previous transfers twice', () => {
   assert.equal(before, state.regions.reduce((sum, r) => sum + r.troops, 0));
   assert.ok(state.regions[1].troops >= 8 && state.regions[2].troops >= 8);
 });
-test('every active faction retains action eligibility after month 420', () => {
+test('free simulation retains every active faction after month 420', () => {
   const state = arranged(); state.phase = 'decisive';
   sandbox.reviewActors = [];
   vm.runInContext('globalThis.originalAttackOptions=attackOptions;attackOptions=(state,context,id)=>{reviewActors.push(id);return [];};', sandbox);
@@ -44,6 +44,15 @@ test('every active faction retains action eligibility after month 420', () => {
       assert.deepEqual(Array.from(sandbox.reviewActors).sort(), roster.slice().sort());
     }
   } finally { vm.runInContext('attackOptions=globalThis.originalAttackOptions;', sandbox); }
+});
+test('fast completion cannot select a leader without a legal front', () => {
+  const state = arranged(); state.month = 421; state.phase = 'decisive'; state.options.quickEndgame = true;
+  state.regions[3].owner = 'hanxin';
+  state.coalitions = [{members:['hanxin','caocao'],target:'liubei',active:true,status:'active',formedMonth:400,expiresMonth:440}];
+  for (const region of state.regions) region.troops = 130;
+  internal.updateFactionSnapshots(state); const events = [];
+  internal.runCampaign(state, internal.normalizeMap(map), new internal.SeededRandom(9), events);
+  assert.ok(events.some(event => ['battle', 'capture'].includes(event.type) && event.actor !== 'hanxin'));
 });
 test('domestic winner cannot be switched into an invalid domestic phase', () => {
   const world = require('./world-map.js'); const state = engine.createGame(world, 'phase-guard');

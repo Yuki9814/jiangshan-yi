@@ -63,12 +63,13 @@
     openSetup(){
       this.onPause();this.draft={...this.config,factionIds:[...this.config.factionIds]};
       $('setup-dialog').innerHTML=`<header class="dialog-header"><div><p class="dialog-eyebrow">开一局自己的山河</p><h2 id="setup-title">择地 · 点将</h2></div><button class="plain-button" data-close>返回战局</button></header>
-        <div class="setup-body"><section class="battlefield-picker" aria-label="选择战场"><div class="section-heading"><h3>战场</h3><span>${this.maps.length} 处山河</span></div><div id="map-choices"></div><p class="setup-footnote">山水围合战场，带地名的地块参与本局争霸。外围势力通过远征抵达。</p><div class="campaign-options"><label><input id="coalitions-option" type="checkbox" ${this.draft.coalitions?'checked':''}> 弱势合纵</label><label><input id="expeditions-option" type="checkbox" ${this.draft.expeditions?'checked':''}> 开启远征</label></div></section>
+        <div class="setup-body"><section class="battlefield-picker" aria-label="选择战场"><div class="section-heading"><h3>战场</h3><span>${this.maps.length} 处山河</span></div><div id="map-choices"></div><p class="setup-footnote">山水围合战场，带地名的地块参与本局争霸。外围势力通过远征抵达。</p><div class="campaign-options"><label><input id=quick-endgame-option type=checkbox ${this.draft.quickEndgame?'checked':''}> 快速收尾（原版）</label><label><input id=council-option type=checkbox ${this.draft.council?'checked':''}> 有限军议</label><label class=council-player-label>执掌势力<select id=council-player aria-label=执掌势力></select></label><label><input id="coalitions-option" type="checkbox" ${this.draft.coalitions?'checked':''}> 弱势合纵</label><label><input id="expeditions-option" type="checkbox" ${this.draft.expeditions?'checked':''}> 开启远征</label></div></section>
         <section class="commander-picker" aria-label="选择出场将领"><div class="section-heading"><h3>出场人物</h3><span id="pick-count" aria-live="polite"></span></div><div class="preset-row"><button data-preset="classic">原班十将</button><button data-preset="kingdoms">三国群英</button><button data-preset="world">跨代群英</button><button data-preset="triangle">三足鼎立</button><button data-preset="clear">清空</button></div><div class="library-filter"><input id="character-search" type="search" placeholder="搜索姓名、时代或定位" aria-label="搜索将领"><select id="character-role" aria-label="按定位筛选"><option value="">全部定位</option>${[...new Set(this.factions.map(f=>f.role))].map(role=>`<option>${esc(role)}</option>`).join('')}</select></div><div id="character-choices" class="character-choices"></div><p id="character-search-empty" class="empty-note" hidden>没有符合条件的人物，试试其他名字或定位。</p></section></div>
         <footer class="setup-footer"><div><label for="setup-seed">本局种子</label><input id="setup-seed" maxlength="48" value="${esc(this.getState()?.seed||'江山-2026')}"><p id="setup-summary" aria-live="polite"></p></div><button id="setup-start" class="primary-button">开局观战</button></footer>`;
       this.renderMapChoices();this.renderCharacterChoices();this.updateSetupSummary();
       $('character-search').oninput=()=>this.renderCharacterChoices();$('character-role').onchange=()=>this.renderCharacterChoices();
-      $('setup-start').onclick=()=>{if(this.draft.factionIds.length<3||this.draft.factionIds.length>12)return;this.draft.coalitions=$('coalitions-option').checked;this.draft.expeditions=$('expeditions-option').checked;this.config={...this.draft,factionIds:[...this.draft.factionIds]};try{localStorage.setItem(STORE,JSON.stringify(this.config));}catch{}const seed=$('setup-seed').value.trim()||'江山-2026';$('setup-dialog').close();this.onStart(this.config,seed);};
+      $('council-option').onchange=()=>this.updateSetupSummary();
+      $('setup-start').onclick=()=>{if(this.getState()?.month>0&&!window.confirm('新开局会替换当前战局，重要进度建议先导出。继续？'))return;if(this.draft.factionIds.length<3||this.draft.factionIds.length>12)return;this.draft.quickEndgame=$('quick-endgame-option').checked;this.draft.council=$('council-option').checked;this.draft.playerFactionId=$('council-player').value;this.draft.coalitions=$('coalitions-option').checked;this.draft.expeditions=$('expeditions-option').checked;this.config={...this.draft,factionIds:[...this.draft.factionIds]};try{localStorage.setItem(STORE,JSON.stringify(this.config));}catch{}const seed=$('setup-seed').value.trim()||'江山-2026';$('setup-dialog').close();this.onStart(this.config,seed);};
       $('setup-dialog').showModal();
     }
     renderMapChoices(){
@@ -83,9 +84,13 @@
     updatePickButtons(){for(const b of $('character-choices').querySelectorAll('[data-pick]'))b.setAttribute('aria-pressed',this.draft.factionIds.includes(b.dataset.pick));}
     updateSetupSummary(){
       const count=this.draft.factionIds.length,map=this.maps.find(m=>m.id===this.draft.mapId);
+      const chooser=$('council-player'),previous=chooser.value||this.draft.playerFactionId;
+      chooser.innerHTML=this.draft.factionIds.map(id=>'<option value="'+esc(id)+'">'+esc(this.byId[id].name)+'</option>').join('');
+      chooser.value=this.draft.factionIds.includes(previous)?previous:this.draft.factionIds[0]||'';chooser.disabled=!$('council-option').checked;
       $('pick-count').textContent=`已选 ${count} / 12 · 至少 3 位`;
       $('setup-summary').textContent=`${map.name} · ${count} 位自选人物${map.worldMode?' + '+this.fixedIds().size+' 位域外驻守':''} · ${map.regions.length} 块地盘${count<3?'，还需选择 '+(3-count)+' 位':''}`;
       $('setup-dialog').querySelector('.setup-footnote').textContent=map.worldMode?'诸侯在中国境内逐鹿，域外人物驻守各自地区。可随时「天下息兵」，再开启域外收服副本。':'山水围合战场。诸侯自动逐鹿，亦可随时选择「天下息兵」。';
+      $('setup-dialog').querySelector('.setup-footnote').textContent+=' 自由推演允许长期僵局；快速收尾在第 420 月后只让最强且有合法前线的势力主动进攻。';
       $('setup-start').disabled=count<3||count>12;
     }
     openCharacter(id,attribute){
