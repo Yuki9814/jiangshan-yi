@@ -1,0 +1,142 @@
+{
+  "assets": [
+    {
+      "file": "assets/portraits/liubei.webp",
+      "source": "https://commons.wikimedia.org/wiki/File:Portraits_of_Famous_Men_-_Liu_Bei.jpg",
+      "author": "Unknown Chinese artist",
+      "license": "Public domain",
+      "licenseURL": "",
+      "copyrighted": "False",
+      "restrictions": "",
+      "sha256": "2ade61f6c953676a90aaaabeb3995e3ff49110aca7bc8d70ab75177d84a3995d",
+      "changes": "裁切、缩放并转换为 384×384 WebP",
+      "verification": "2026-09-12 Commons imageinfo/extmetadata"
+    },
+    {
+      "file": "assets/portraits/zhangfei.webp",
+      "source": "https://commons.wikimedia.org/wiki/File:%E6%98%8E%E4%BA%BA%E7%94%BB%E5%BC%A0%E9%A3%9E%E5%83%8F%E8%BD%B4.png",
+      "author": "Unknown author Unknown author",
+      "license": "Public domain",
+      "licenseURL": "",
+      "copyrighted": "False",
+      "restrictions": "",
+      "sha256": "e0788ebb14e4c36861edab8b18566b62d745f0d5b788eaf45e618457587a9a71",
+      "changes": "裁切、缩放并转换为 384×384 WebP",
+      "verification": "2026-09-12 Commons imageinfo/extmetadata"
+    },
+    {
+      "file": "assets/portraits/zhaoyun.webp",
+      "source": "https://commons.wikimedia.org/wiki/File:ZhaoYun.jpg",
+      "author": "Unknown author Unknown author",
+      "license": "Public domain",
+      "licenseURL": "",
+      "copyrighted": "False",
+      "restrictions": "",
+      "sha256": "10dd6e1352f49d9de570047d691b4704927fada2644b3d6675a6a580609cc8ce",
+      "changes": "裁切、缩放并转换为 384×384 WebP",
+      "verification": "2026-09-12 Commons imageinfo/extmetadata"
+    },
+    {
+      "file": "assets/portraits/zhouyu.webp",
+      "source": "https://commons.wikimedia.org/wiki/File:%E5%91%A8%E8%BC%BF.jpg",
+      "author": "清 徐璋",
+      "license": "Public domain",
+      "licenseURL": "",
+      "copyrighted": "False",
+      "restrictions": "",
+      "sha256": "2168727afd9471011534b2278d812943e8c66927804e4d5c884bcf7dc2285815",
+      "changes": "裁切、缩放并转换为 384×384 WebP",
+      "verification": "2026-09-12 Commons imageinfo/extmetadata"
+    },
+    {
+      "file": "assets/portraits/simayi.webp",
+      "source": "https://commons.wikimedia.org/wiki/File:%E9%AD%8F%C2%B7%E5%A4%AA%E5%82%85_%E5%8F%B8%E9%A6%AC%E6%87%BF.jpg",
+      "author": "Ming Zhu Tianran",
+      "license": "Public domain",
+      "licenseURL": "",
+      "copyrighted": "False",
+      "restrictions": "",
+      "sha256": "66c85564422de63588cb8a3bc6a59d50a306751456247530cb63b61c653a342a",
+      "changes": "裁切、缩放并转换为 384×384 WebP",
+      "verification": "2026-09-12 Commons imageinfo/extmetadata"
+    },
+    {
+      "file": "assets/portraits/sunquan.webp",
+      "source": "https://commons.wikimedia.org/wiki/File:Portraits_of_Famous_Men_-_Sun_Quan.jpg",
+      "author": "Unknown Chinese artist",
+      "license": "Public domain",
+      "licenseURL": "",
+      "copyrighted": "False",
+      "restrictions": "",
+      "sha256": "c5a3803d5f64abba656baef8c9e6412951fbae425eaaf15e355b0989bd9ff365",
+      "changes": "裁切、缩放并转换为 384×384 WebP",
+      "verification": "2026-09-12 Commons imageinfo/extmetadata"
+    },
+    {
+      "file": "assets/portraits/yuefei.webp",
+      "source": "https://commons.wikimedia.org/wiki/File:Portrait_of_Yue_Fei_LACMA_M.80.215.jpg",
+      "author": "Tsubaki Chinzan (Japan, 1801-1854)",
+      "license": "Public domain",
+      "licenseURL": "",
+      "copyrighted": "False",
+      "restrictions": "",
+      "sha256": "10b6683cafe0b32ee90c75f367c80c3360c84cad17abaa1b9c7af3a9aeaab3bd",
+      "changes": "裁切、缩放并转换为 384×384 WebP",
+      "verification": "2026-09-12 Commons imageinfo/extmetadata"
+    },
+    {
+      "file": "assets/portraits/qijiguang.webp",
+      "source": "https://commons.wikimedia.org/wiki/File:Qi_jiguang.JPG",
+      "author": "GnuDoyng",
+      "license": "Public domain",
+      "licenseURL": "",
+      "copyrighted": "False",
+      "restrictions": "",
+      "sha256": "09a93e0807019bd2e34531eabeb13c4408516501cca2c61aa9df8ff51c69783c",
+      "changes": "裁切、缩放并转换为 384×384 WebP",
+      "verification": "2026-09-12 Commons imageinfo/extmetadata"
+    },
+    {
+      "file": "assets/portraits/xiangyu.webp",
+      "source": "https://commons.wikimedia.org/wiki/File:Portraits_of_Famous_Men_-_Xiang_Wang.jpg",
+      "author": "Unknown Chinese artist",
+      "license": "Public domain",
+      "licenseURL": "",
+      "copyrighted": "False",
+      "restrictions": "",
+      "sha256": "87f8641ca7c44a74b637c7e74cc3e7c24a2a4104652aa5eba37059af72a7eef5",
+      "changes": "裁切、缩放并转换为 384×384 WebP",
+      "verification": "2026-09-12 Commons imageinfo/extmetadata"
+    },
+    {
+      "file": "assets/portraits/genghiskhan.webp",
+      "source": "https://commons.wikimedia.org/wiki/File:YuanEmperorAlbumGenghisPortrait.jpg",
+      "sha256": "8ead494183c53dcad1d8aaa6c334a0269984c27c7c3c44ff31f9e34583f312ac",
+      "changes": "裁切、缩放并转换为 384×384 WebP",
+      "license": "Public domain（既有项目来源记录）",
+      "author": "见原始来源页面",
+      "verification": "本次 Commons API 返回 429，沿用已保存的来源记录，未声称本次在线复核完成"
+    },
+    {
+      "file": "assets/portraits/saladin.webp",
+      "source": "https://commons.wikimedia.org/wiki/File:Cristofano_dell%27altissimo,_saladino,_ante_1568_-_Serie_Gioviana.jpg",
+      "author": "Cristofano dell'Altissimo",
+      "license": "Public domain",
+      "licenseURL": "",
+      "copyrighted": "False",
+      "restrictions": "",
+      "sha256": "1a629cfbcb514a10d7a1811413d1bbb5bb6f39eac372cf438ee965172156e0c8",
+      "changes": "裁切、缩放并转换为 384×384 WebP",
+      "verification": "2026-09-12 Commons imageinfo/extmetadata"
+    },
+    {
+      "file": "assets/portraits/richard.webp",
+      "source": "https://commons.wikimedia.org/wiki/File:British_-_Richard_I_-_Google_Art_Project.jpg",
+      "sha256": "f9848f4330452db9b194df61eb6b1857f786d9d3c4a71d0af3449e54eca1a379",
+      "changes": "裁切、缩放并转换为 384×384 WebP",
+      "license": "Public domain（既有项目来源记录）",
+      "author": "见原始来源页面",
+      "verification": "本次 Commons API 返回 429，沿用已保存的来源记录，未声称本次在线复核完成"
+    }
+  ]
+}

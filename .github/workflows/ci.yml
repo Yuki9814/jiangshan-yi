@@ -1,0 +1,52 @@
+name: 自动检查
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  javascript:
+    name: JavaScript 与玩法
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: 语法检查
+        run: |
+          for file in *.js *.cjs; do node --check "$file"; done
+      - name: 玩法与视口检查
+        run: |
+          node engine.test.cjs
+          node character-mechanics.test.cjs
+          node campaign-mechanics.test.cjs
+          node world-mechanics.test.cjs
+          node world-completion.test.cjs
+          node viewport.test.cjs
+  geography:
+    name: 世界地图几何
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: 检查地块、共享边界与海路
+        run: python source-tools/validate_world_map.py --evidence work/world-map-validation.json

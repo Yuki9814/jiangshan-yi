@@ -1,0 +1,17 @@
+name: 改进建议
+description: 提出新的玩法或体验改进
+title: "[建议] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 想解决什么问题
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 希望如何改进
+      description: 可以附示意图或参考，也欢迎先讨论想法。
+    validations:
+      required: true

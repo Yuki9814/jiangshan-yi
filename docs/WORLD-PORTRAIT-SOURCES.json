@@ -1,0 +1,85 @@
+{
+  "assets": [
+    {
+      "id": "gwanggaeto",
+      "file": "assets/portraits/world-gwanggaeto.webp",
+      "source": "https://commons.wikimedia.org/wiki/File:20250524_Nakjibibimbap_Gwanggaeto_the_great_statue.jpg",
+      "author": "Nakjibibimbap",
+      "license": "CC BY-SA 4.0",
+      "changes": "裁切、缩放并转换为 384×384 WebP",
+      "sha256": "ba6245911bd80f05067543f008217b1e6ed67f9294c4b045848c3b8d363707f1"
+    },
+    {
+      "id": "ieyasu",
+      "file": "assets/portraits/world-ieyasu.webp",
+      "source": "https://commons.wikimedia.org/wiki/File:Tokugawa_Ieyasu.jpg",
+      "author": "传统归于狩野探幽；馆藏说明为德川家康神像画像",
+      "license": "Public domain",
+      "changes": "裁切、缩放并转换为 384×384 WebP",
+      "sha256": "8290c90270e8b2fa9de5f232f02aca45ba75fbacb4efcbfdff2368f81822ff28"
+    },
+    {
+      "id": "ashoka",
+      "file": "assets/portraits/world-ashoka.webp",
+      "source": "https://commons.wikimedia.org/wiki/File:Lion_Capital_of_Ashoka.jpg",
+      "author": "Yann",
+      "license": "CC BY-SA 4.0",
+      "changes": "裁切、缩放并转换为 384×384 WebP",
+      "sha256": "b7393d6e3a43bfc96e92ef9e107247b7148f2b70959aab681aa86b257a0fbc9d"
+    },
+    {
+      "id": "jayavarman7",
+      "file": "assets/portraits/world-jayavarman7.webp",
+      "source": "https://commons.wikimedia.org/wiki/File:2016_Phnom_Penh,_Pa%C5%82ac_Kr%C3%B3lewski,_Pos%C4%85g_D%C5%BCajawarmana_VII_(01).jpg",
+      "author": "Marcin Konsek",
+      "license": "CC BY-SA 4.0",
+      "changes": "裁切、缩放并转换为 384×384 WebP",
+      "sha256": "f38fbad031d9a9ca7f2dfea76609880d58eec2e578d5dbf8c1db5bb3b85c4866"
+    },
+    {
+      "id": "stefan",
+      "file": "assets/portraits/world-stefan.webp",
+      "source": "https://commons.wikimedia.org/wiki/File:Stephen_the_Great,_1488,_Vorone%C5%A3_Monastery,_portrait_size.jpg",
+      "author": "Ninhursag3（壁画摄影）；壁画作者未署名",
+      "license": "CC0",
+      "changes": "裁切、缩放并转换为 384×384 WebP",
+      "sha256": "cafb91b809466499bc928b5102abdd79d0f23775097c7d5a0834a3d4f9acf5a7"
+    },
+    {
+      "id": "mansamusa",
+      "file": "assets/portraits/world-mansamusa.webp",
+      "source": "https://commons.wikimedia.org/wiki/File:Catalan_Atlas_BNF_Sheet_6_Mansa_Musa_(cropped).jpg",
+      "author": "归于 Abraham Cresques",
+      "license": "Public domain",
+      "changes": "裁切、缩放并转换为 384×384 WebP",
+      "sha256": "42e8028fb3ea3313a643d754185e7d922f68476541e063b43e0319d5503c0393"
+    },
+    {
+      "id": "moctezuma2",
+      "file": "assets/portraits/world-moctezuma2.webp",
+      "source": "https://commons.wikimedia.org/wiki/File:Moctezuma_II,_the_Last_Aztec_King_(Reigned_1502%E2%80%9320)_WDL6724.png",
+      "author": "Juan de Tovar（约1546–约1626）",
+      "license": "Public domain",
+      "changes": "裁切、缩放并转换为 384×384 WebP",
+      "sha256": "c61aecd89455348f6ed9571ca4cc6cdfd13ed1bdca731d7ecc1eb629accfffc8"
+    },
+    {
+      "id": "pachacuti",
+      "file": "assets/portraits/world-pachacuti.webp",
+      "source": "https://commons.wikimedia.org/wiki/File:Brooklyn_Museum_-_Pachacuti,_Tenth_Inca,_1_of_14_Portraits_of_Inca_Kings.jpg",
+      "author": "馆藏来源未署名；Brooklyn Museum 1995.29.10",
+      "license": "Public domain",
+      "changes": "裁切、缩放并转换为 384×384 WebP",
+      "sha256": "06c7f6d8a24b1d50a0fdef2b70dcd4828626df77caffcf085f8428e005ac4af0"
+    },
+    {
+      "id": "kamehameha",
+      "file": "assets/portraits/world-kamehameha.webp",
+      "source": "https://commons.wikimedia.org/wiki/File:%27King_Kamehameha_I%27,_watercolor_by_Louis_Choris,_1817,_Bernice_P._Bishop_Museum.jpg",
+      "author": "Louis Choris",
+      "license": "Public domain",
+      "changes": "裁切、缩放并转换为 384×384 WebP",
+      "sha256": "16d7600c29fdfac3f6718b82cfe7a9cf36303e032babce6b7a1a41f16d1e4f1e"
+    }
+  ]
+}

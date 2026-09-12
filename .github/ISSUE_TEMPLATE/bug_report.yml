@@ -1,0 +1,28 @@
+name: 问题反馈
+description: 报告玩法、地图或界面问题
+title: "[问题] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 出现了什么问题
+      description: 请同时描述预期行为与实际行为。
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 如何复现
+      description: 尽量提供地图、选将、随机种子、操作月份与步骤。
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 使用环境
+      placeholder: 例如 macOS / Chrome，或 Windows / Edge
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 截图或补充信息
+      description: 如包含报错日志，请先移除个人信息。
