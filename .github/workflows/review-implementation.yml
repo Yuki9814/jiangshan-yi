@@ -49,6 +49,20 @@ jobs:
           name: review-browser-evidence
           path: work/review-*.png
           if-no-files-found: ignore
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: review-source-evidence
+          path: |
+            *.js
+            *.cjs
+            *.html
+            *.css
+            launcher.py
+            RULES.md
+            README.md
+            source-tools/*review*.cjs
+          if-no-files-found: error
       - name: Push only the tested implementation branch
         if: success() && steps.rules.outcome == 'success'
         run: |
